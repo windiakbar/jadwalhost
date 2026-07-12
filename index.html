@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Host Live Scheduler - Premium Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#090d16',
+                        glass: 'rgba(17, 24, 39, 0.7)',
+                        primary: '#6366f1',
+                        info: '#38bdf8',
+                        success: '#4ade80',
+                        warning: '#facc15',
+                        danger: '#f87171'
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                        'glow': '0 0 15px rgba(99, 102, 241, 0.4)',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.08) 0px, transparent 50%);
+            background-attachment: fixed;
+            -webkit-tap-highlight-color: transparent; /* Hilangkan highlight biru di HP */
+        }
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        /* Pulsing Dot animation */
+        @keyframes pulse-dot {
+            0% { transform: scale(0.8); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(0.8); }
+        }
+        .pulse-active-dot {
+            animation: pulse-dot 1.5s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+        }
+        /* Input date styling untuk Mobile */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            opacity: 0.7;
+        }
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body class="text-gray-100 min-h-screen pb-16 md:pb-12 transition-colors duration-300">
+
+    <!-- Notification Overlay -->
+    <div id="toast-container" class="fixed top-5 right-5 left-5 md:left-auto z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6">
+        
+        <!-- Header Nav -->
+        <header class="glass-panel p-4 md:p-6 rounded-3xl shadow-glass mb-6 md:mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <div class="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 rounded-2xl bg-gradient-to-tr from-primary to-info flex items-center justify-center shadow-glow">
+                    <span class="material-symbols-outlined text-white text-[24px] md:text-[28px]">calendar_month</span>
+                </div>
+                <div class="flex-1">
+                    <h1 class="text-lg md:text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-primary via-indigo-200 to-info tracking-tight leading-tight">
+                        HOST LIVE SCHEDULER
+                    </h1>
+                    <p class="text-gray-400 text-[10px] md:text-xs mt-0.5 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-success animate-pulse"></span>
+                        Version 2.0 <span class="text-[9px] md:text-[10px] bg-slate-800 text-info px-1.5 py-0.5 rounded ml-1 font-mono">Mobile Core</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Global Status Bar & Controls -->
+            <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+                <div class="bg-slate-900/80 px-3 py-1.5 md:px-4 md:py-2 rounded-xl border border-slate-800 text-[11px] md:text-xs flex items-center gap-1.5 flex-1 md:flex-none justify-center">
+                    <span class="material-symbols-outlined text-info text-[14px]">schedule</span>
+                    <span id="live-clock" class="font-mono text-gray-300 font-medium">--:--:--</span>
+                </div>
+                <button onclick="UI.toggleAdminPanel()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-1.5 px-3 md:py-2 md:px-4 rounded-xl flex items-center justify-center gap-1.5 text-[11px] md:text-sm transition-all shadow-md flex-1 md:flex-none">
+                    <span id="admin-btn-icon" class="material-symbols-outlined text-[16px] md:text-lg">admin_panel_settings</span>
+                    <span id="admin-btn-text">Admin</span>
+                </button>
+            </div>
+            
+            <!-- Connection Status (Full width on mobile) -->
+            <div id="connection-status" class="w-full md:w-auto mt-1 md:mt-0 bg-amber-950/40 text-warning px-3 py-1.5 md:px-4 md:py-2 rounded-xl border border-warning/20 text-[10px] md:text-xs flex items-center gap-2 justify-center">
+                <span class="inline-block w-2 h-2 rounded-full bg-warning"></span>
+                <span class="font-medium truncate">Menghubungkan Database...</span>
+            </div>
+        </header>
+
+        <!-- Main Public View -->
+        <main id="public-view" class="space-y-4 md:space-y-6">
+            
+            <!-- Dashboard Quick Highlights -->
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                <!-- Highlight 1: Total Sesi -->
+                <div class="glass-panel p-4 md:p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-2">
+                    <div>
+                        <p class="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider font-semibold">Total Sesi Hari Ini</p>
+                        <h2 id="summary-total-sessions" class="text-2xl md:text-3xl font-extrabold mt-0.5 text-white">0</h2>
+                    </div>
+                    <div class="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-primary self-start md:self-auto">
+                        <span class="material-symbols-outlined text-xl md:text-3xl">view_list</span>
+                    </div>
+                </div>
+                <!-- Highlight 2: Live Now -->
+                <div class="glass-panel p-4 md:p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-2 relative overflow-hidden col-span-2 md:col-span-1 border border-danger/20 bg-danger/5">
+                    <div>
+                        <p class="text-[10px] md:text-xs text-amber-400 uppercase tracking-wider font-semibold flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-danger pulse-active-dot inline-block"></span>
+                            Sedang Live
+                        </p>
+                        <h2 id="summary-live-host" class="text-sm md:text-lg font-extrabold mt-0.5 text-white truncate max-w-full">Tidak Ada</h2>
+                    </div>
+                    <div class="hidden md:flex w-12 h-12 rounded-xl bg-danger/10 items-center justify-center border border-danger/20 text-danger absolute right-5 top-1/2 -translate-y-1/2">
+                        <span class="material-symbols-outlined text-3xl animate-pulse">videocam</span>
+                    </div>
+                </div>
+                <!-- Highlight 3: Upcoming Session (Hidden on very small screens, flex on md) -->
+                <div class="glass-panel p-4 md:p-5 rounded-2xl flex-col md:flex-row md:items-center justify-between gap-2 hidden sm:flex">
+                    <div>
+                        <p class="text-[10px] md:text-xs text-info uppercase tracking-wider font-semibold">Sesi Berikutnya</p>
+                        <h2 id="summary-upcoming-session" class="text-sm md:text-base font-extrabold mt-0.5 text-white truncate max-w-[150px] md:max-w-[200px]">Belum Ada</h2>
+                    </div>
+                    <div class="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-info/10 flex items-center justify-center border border-info/20 text-info self-start md:self-auto">
+                        <span class="material-symbols-outlined text-xl md:text-3xl">fast_forward</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Grid: Search & Navigation -->
+            <div class="glass-panel p-3 md:p-6 rounded-2xl md:rounded-3xl shadow-glass flex flex-col gap-3 md:gap-4 items-center">
+                <!-- Date Navigasi Button Group (Mobile Optimized) -->
+                <div class="flex flex-wrap items-center justify-between w-full gap-2">
+                    <button onclick="Scheduler.changeActiveDay(-1)" class="bg-slate-800 hover:bg-slate-700 text-gray-300 p-2 md:p-2.5 rounded-xl border border-slate-700 transition-all flex items-center justify-center flex-1 md:flex-none">
+                        <span class="material-symbols-outlined text-sm md:text-base">chevron_left</span>
+                    </button>
+                    <button onclick="Scheduler.setActiveToToday()" class="bg-slate-800 hover:bg-slate-700 text-gray-200 px-3 py-2 md:px-4 md:py-2.5 rounded-xl border border-slate-700 font-medium text-[11px] md:text-sm transition-all flex-[2] md:flex-none text-center">
+                        Hari Ini
+                    </button>
+                    <button onclick="Scheduler.changeActiveDay(1)" class="bg-slate-800 hover:bg-slate-700 text-gray-300 p-2 md:p-2.5 rounded-xl border border-slate-700 transition-all flex items-center justify-center flex-1 md:flex-none">
+                        <span class="material-symbols-outlined text-sm md:text-base">chevron_right</span>
+                    </button>
+                    <div class="relative flex-[3] md:min-w-[150px] md:flex-none">
+                        <input type="date" id="nav-date-picker" onchange="Scheduler.onDatePickerChange(this.value)" class="bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 md:px-3 text-[11px] md:text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary w-full h-full text-center md:text-left">
+                    </div>
+                </div>
+
+                <!-- Display Selected Date Header -->
+                <div class="text-center py-1.5 px-3 md:py-2 md:px-4 rounded-xl bg-primary/10 border border-primary/20 w-full md:w-auto">
+                    <h3 id="current-display-date" class="font-bold text-sm md:text-lg text-indigo-300 font-mono">
+                        Memuat Tanggal...
+                    </h3>
+                </div>
+
+                <!-- Live Search Box -->
+                <div class="relative w-full">
+                    <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-[18px]">search</span>
+                    <input type="text" id="schedule-search-input" oninput="Scheduler.onSearch(this.value)" placeholder="Cari nama host..." class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-9 md:pl-10 pr-3 md:pr-4 py-2 md:py-2.5 text-[11px] md:text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary transition-all">
+                </div>
+            </div>
+
+            <!-- Schedule Card Containers -->
+            <div>
+                <div class="flex items-center justify-between mb-3 md:mb-4 px-1">
+                    <h4 class="text-sm md:text-base font-bold text-gray-300 flex items-center gap-1.5 md:gap-2">
+                        <span class="material-symbols-outlined text-indigo-400 text-sm md:text-base">calendar_view_day</span>
+                        Rincian Jadwal
+                    </h4>
+                    <span id="schedule-counter-text" class="text-[10px] md:text-xs bg-slate-800 text-gray-400 px-2 py-0.5 md:px-3 md:py-1 rounded-full border border-slate-700/80"></span>
+                </div>
+                
+                <div id="schedule-cards-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+                    <!-- Cards will be dynamically rendered here -->
+                </div>
+
+                <!-- Empty State Message -->
+                <div id="schedule-empty-state" class="hidden glass-panel rounded-2xl md:rounded-3xl p-8 md:p-12 text-center max-w-lg mx-auto mt-4 md:mt-6">
+                    <span class="material-symbols-outlined text-slate-500 text-[48px] md:text-[64px] mb-2 md:mb-3">event_busy</span>
+                    <h4 class="text-base md:text-lg font-bold text-gray-300">Jadwal Kosong</h4>
+                    <p class="text-[11px] md:text-sm text-gray-500 mt-1">Belum ada jadwal live untuk tanggal ini.</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Main Admin Panel -->
+        <section id="admin-panel" class="hidden space-y-4 md:space-y-6">
+            
+            <!-- Login Block -->
+            <div id="admin-login-card" class="glass-panel max-w-sm md:max-w-md mx-auto p-5 md:p-8 rounded-3xl shadow-glass text-center relative overflow-hidden my-8 md:my-12 mx-4">
+                <div class="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-primary mx-auto mb-3 md:mb-4 border border-indigo-500/25">
+                    <span class="material-symbols-outlined text-3xl md:text-4xl">lock</span>
+                </div>
+                <h3 class="text-lg md:text-xl font-bold text-white mb-4 md:mb-6">Sistem Admin</h3>
+                <div class="space-y-3 md:space-y-4">
+                    <input type="password" id="admin-password-input" placeholder="Masukkan PIN" inputmode="numeric" pattern="[0-9]*" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 md:py-3 text-base md:text-lg focus:outline-none focus:ring-2 focus:ring-primary text-center tracking-widest text-white font-mono">
+                    <button onclick="Admin.attemptLogin()" class="w-full bg-primary hover:bg-indigo-500 text-white font-bold py-2.5 md:py-3 px-4 rounded-xl text-xs md:text-sm transition-all shadow-md">
+                        Buka Akses
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard Admin Terkunci (Visible after successful auth) -->
+            <div id="admin-authenticated-zone" class="hidden">
+                <!-- Navigation Tabs Panel Admin (Mobile optimized) -->
+                <div class="glass-panel p-1.5 md:p-2 rounded-xl md:rounded-2xl shadow-md mb-4 md:mb-6 flex gap-1 overflow-x-auto snap-x">
+                    <button id="tab-btn-schedules" onclick="Admin.switchTab('schedules')" class="flex-1 min-w-[130px] snap-center flex items-center justify-center gap-1.5 md:gap-2 py-2 px-3 md:py-2.5 md:px-4 rounded-lg md:rounded-xl text-[11px] md:text-sm font-semibold transition-all bg-primary text-white">
+                        <span class="material-symbols-outlined text-sm md:text-lg">calendar_month</span> Kelola Jadwal
+                    </button>
+                    <button id="tab-btn-hosts" onclick="Admin.switchTab('hosts')" class="flex-1 min-w-[130px] snap-center flex items-center justify-center gap-1.5 md:gap-2 py-2 px-3 md:py-2.5 md:px-4 rounded-lg md:rounded-xl text-[11px] md:text-sm font-semibold transition-all text-gray-400 hover:text-white hover:bg-slate-800/50">
+                        <span class="material-symbols-outlined text-sm md:text-lg">groups</span> Kelola Host
+                    </button>
+                </div>
+
+                <!-- TAB 1: KELOLA JADWAL -->
+                <div id="admin-tab-schedules" class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+                    <!-- Form Tambah/Edit Jadwal -->
+                    <div class="glass-panel p-4 md:p-6 rounded-2xl h-fit space-y-3 md:space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-2">
+                            <h4 id="form-schedule-title" class="font-bold text-sm md:text-base text-gray-200 flex items-center gap-1.5 md:gap-2">
+                                <span class="material-symbols-outlined text-primary text-base md:text-lg">add_circle</span>
+                                Buat Jadwal
+                            </h4>
+                            <button id="btn-cancel-edit-schedule" onclick="Admin.resetScheduleForm()" class="hidden text-[10px] md:text-xs text-danger bg-danger/10 px-2 py-1 rounded-md border border-danger/20">
+                                Batal
+                            </button>
+                        </div>
+                        <form id="schedule-form" onsubmit="Admin.handleScheduleSubmit(event)" class="space-y-3 text-[11px] md:text-xs text-gray-300">
+                            <input type="hidden" id="edit-schedule-id">
+                            <div>
+                                <label class="block text-gray-400 font-semibold mb-1">Tanggal</label>
+                                <input type="date" id="sched-date" required class="w-full bg-slate-900 border border-slate-700/80 rounded-lg md:rounded-xl px-2.5 py-2 text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 font-semibold mb-1">Hari (Otomatis)</label>
+                                <input type="text" id="sched-day" required readonly class="w-full bg-slate-900/50 border border-slate-700/50 rounded-lg md:rounded-xl px-2.5 py-2 text-gray-400 focus:outline-none cursor-not-allowed">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 md:gap-3">
+                                <div>
+                                    <label class="block text-gray-400 font-semibold mb-1">Mulai</label>
+                                    <input type="time" id="sched-start" required class="w-full bg-slate-900 border border-slate-700/80 rounded-lg md:rounded-xl px-2.5 py-2 text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-gray-400 font-semibold mb-1">Selesai</label>
+                                    <input type="time" id="sched-end" required class="w-full bg-slate-900 border border-slate-700/80 rounded-lg md:rounded-xl px-2.5 py-2 text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 font-semibold mb-1">Pilih Host</label>
+                                <select id="sched-host-select" required class="w-full bg-slate-900 border border-slate-700/80 rounded-lg md:rounded-xl px-2.5 py-2 text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                                    <option value="">-- Pilih Host --</option>
+                                </select>
+                            </div>
+                            <div class="pt-1 md:pt-2">
+                                <button type="submit" id="btn-submit-schedule" class="w-full bg-primary hover:bg-indigo-500 text-white font-bold py-2 md:py-2.5 px-4 rounded-lg md:rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 md:gap-2 text-[11px] md:text-sm">
+                                    <span class="material-symbols-outlined text-sm md:text-base">save</span> Simpan Jadwal
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- List & Bulk Actions Jadwal -->
+                    <div class="lg:col-span-2 space-y-4">
+                        <!-- Bulk Actions Card -->
+                        <div class="glass-panel p-3 md:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div class="text-center sm:text-left w-full sm:w-auto">
+                                <h4 class="font-bold text-[11px] md:text-sm text-gray-200">Aksi Massal</h4>
+                                <p class="text-[9px] md:text-xs text-gray-500 mt-0.5">Duplikasi pola jadwal dengan cepat.</p>
+                            </div>
+                            <div class="flex items-center gap-2 w-full sm:w-auto">
+                                <button onclick="Admin.triggerBulkCopy('yesterday')" class="flex-1 sm:flex-none text-[10px] md:text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/20 py-1.5 md:py-2 px-2 md:px-3 rounded-lg font-medium flex items-center justify-center gap-1">
+                                    <span class="material-symbols-outlined text-[12px] md:text-sm">content_copy</span> Salin H-1
+                                </button>
+                                <button onclick="Admin.triggerBulkCopy('7days')" class="flex-1 sm:flex-none text-[10px] md:text-xs bg-sky-600/20 text-sky-300 border border-sky-500/20 py-1.5 md:py-2 px-2 md:px-3 rounded-lg font-medium flex items-center justify-center gap-1">
+                                    <span class="material-symbols-outlined text-[12px] md:text-sm">event_note</span> +7 Hari
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Data List Jadwal -->
+                        <div class="glass-panel p-3 md:p-5 rounded-2xl">
+                            <h4 class="font-bold text-[11px] md:text-sm text-gray-200 mb-2.5 md:mb-3 flex items-center gap-1.5 md:gap-2">
+                                <span class="material-symbols-outlined text-primary text-[14px] md:text-sm">list</span>
+                                List Jadwal Tanggal Terpilih
+                            </h4>
+                            <!-- Wrapper for horizontal scroll on mobile tables -->
+                            <div class="overflow-x-auto pb-2">
+                                <table class="w-full text-left border-collapse text-[10px] md:text-xs min-w-[450px] md:min-w-full">
+                                    <thead>
+                                        <tr class="border-b border-slate-800 text-gray-400 font-semibold">
+                                            <th class="pb-2 pt-1 px-1">Host</th>
+                                            <th class="pb-2 pt-1 px-1">Tanggal</th>
+                                            <th class="pb-2 pt-1 px-1">Waktu</th>
+                                            <th class="pb-2 pt-1 px-1 text-center w-20">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-schedule-table-rows" class="divide-y divide-slate-800/60 text-gray-300">
+                                        <!-- Dynamic rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: KELOLA HOST -->
+                <div id="admin-tab-hosts" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+                    <!-- Form Tambah/Edit Host -->
+                    <div class="glass-panel p-4 md:p-6 rounded-2xl h-fit space-y-3 md:space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-2">
+                            <h4 id="form-host-title" class="font-bold text-sm md:text-base text-gray-200 flex items-center gap-1.5 md:gap-2">
+                                <span class="material-symbols-outlined text-success text-base md:text-lg">person_add</span>
+                                Daftarkan Host
+                            </h4>
+                            <button id="btn-cancel-edit-host" onclick="Admin.resetHostForm()" class="hidden text-[10px] md:text-xs text-danger bg-danger/10 px-2 py-1 rounded-md border border-danger/20">
+                                Batal
+                            </button>
+                        </div>
+                        <form id="host-form" onsubmit="Admin.handleHostSubmit(event)" class="space-y-3 text-[11px] md:text-xs text-gray-300">
+                            <input type="hidden" id="edit-host-id">
+                            <div>
+                                <label class="block text-gray-400 font-semibold mb-1">Nama Lengkap Host</label>
+                                <input type="text" id="host-name" required placeholder="Contoh: Sarah" class="w-full bg-slate-900 border border-slate-700/80 rounded-lg md:rounded-xl px-2.5 py-2 text-white focus:ring-2 focus:ring-success focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 font-semibold mb-1">No. WhatsApp</label>
+                                <input type="number" id="host-whatsapp" required placeholder="Format: 628..." class="w-full bg-slate-900 border border-slate-700/80 rounded-lg md:rounded-xl px-2.5 py-2 text-white focus:ring-2 focus:ring-success focus:outline-none" inputmode="numeric">
+                            </div>
+                            <div class="pt-1 md:pt-2">
+                                <button type="submit" id="btn-submit-host" class="w-full bg-success hover:bg-emerald-500 text-slate-950 font-bold py-2 md:py-2.5 px-4 rounded-lg md:rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 md:gap-2 text-[11px] md:text-sm">
+                                    <span class="material-symbols-outlined text-sm md:text-base">person</span> Simpan Host
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- List Host -->
+                    <div class="lg:col-span-2 glass-panel p-3 md:p-5 rounded-2xl">
+                        <h4 class="font-bold text-[11px] md:text-sm text-gray-200 mb-2.5 md:mb-3 flex items-center gap-1.5 md:gap-2">
+                            <span class="material-symbols-outlined text-success text-[14px] md:text-sm">groups</span>
+                            Master Database Host
+                        </h4>
+                        <div class="overflow-x-auto pb-2">
+                            <table class="w-full text-left border-collapse text-[10px] md:text-xs min-w-[350px] md:min-w-full">
+                                <thead>
+                                    <tr class="border-b border-slate-800 text-gray-400 font-semibold">
+                                        <th class="pb-2 pt-1 px-1">Nama Host</th>
+                                        <th class="pb-2 pt-1 px-1">WhatsApp</th>
+                                        <th class="pb-2 pt-1 px-1 text-center w-20">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-host-table-rows" class="divide-y divide-slate-800/60 text-gray-300">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Javascript Logical Controller -->
+    <script>
+        // Util fungsi tanggal
+        const getTodayDateString = () => {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        };
+
+        const getYesterdayDateString = () => {
+            const d = new Date();
+            d.setDate(d.getDate() - 1);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        };
+
+        // State Utama & Konfigurasi Google Apps Script
+        const STATE = {
+            hosts: [],
+            schedules: [],
+            activeDate: getTodayDateString(),
+            searchQuery: "",
+            isAdmin: false,
+            currentAdminTab: "schedules",
+            connectionMode: "sheets",
+            // URL Web App Google Apps Script telah disetel sesuai permintaan:
+            webAppUrl: "https://script.google.com/macros/s/AKfycbxWh5jGsks7_PNwAmFlB3t9MeAXIVFziL1qL1-wcc7su-twD4cm52Iqte2NlcJdWBU/exec",
+            spreadsheetId: "1n_yVGEzEB3zqb4Y8nLSLQFTXanFHqxf-qWKFr8zSvR4" // Hardcoded seperti permintaan
+        };
+
+        // UI & Notification Handlers
+        const UI = {
+            showToast(message, type = "info") {
+                const toastBox = document.getElementById("toast-container");
+                if (!toastBox) return;
+
+                const id = "toast_" + Date.now();
+                let bgColor = "bg-indigo-950/90 border-indigo-500/50 text-indigo-300";
+                let icon = "info";
+
+                if (type === "success") { bgColor = "bg-emerald-950/90 border-emerald-500/50 text-emerald-300"; icon = "check_circle"; } 
+                else if (type === "error") { bgColor = "bg-rose-950/90 border-rose-500/50 text-rose-300"; icon = "error"; } 
+                else if (type === "warning") { bgColor = "bg-amber-950/90 border-amber-500/50 text-amber-300"; icon = "warning"; }
+
+                const toast = document.createElement("div");
+                toast.id = id;
+                toast.className = `flex items-center gap-2 md:gap-3 p-2.5 md:p-3.5 rounded-lg md:rounded-xl border ${bgColor} shadow-lg pointer-events-auto transition-all duration-300 transform translate-y-4 md:translate-x-12 opacity-0 text-[10px] md:text-xs font-semibold max-w-full md:max-w-sm backdrop-blur-md`;
+                toast.innerHTML = `
+                    <span class="material-symbols-outlined text-[16px] md:text-[18px] flex-shrink-0">${icon}</span>
+                    <span class="flex-1 leading-snug">${message}</span>
+                    <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-white transition-all flex-shrink-0 p-1">
+                        <span class="material-symbols-outlined text-[14px] md:text-[16px]">close</span>
+                    </button>
+                `;
+
+                toastBox.appendChild(toast);
+                setTimeout(() => toast.classList.remove("translate-y-4", "md:translate-x-12", "opacity-0"), 50);
+                setTimeout(() => {
+                    toast.classList.add("opacity-0");
+                    setTimeout(() => toast.remove(), 300);
+                }, 4000);
+            },
+
+            toggleAdminPanel() {
+                const publicView = document.getElementById("public-view");
+                const adminPanel = document.getElementById("admin-panel");
+                const adminBtnText = document.getElementById("admin-btn-text");
+                const adminBtnIcon = document.getElementById("admin-btn-icon");
+
+                if (adminPanel.classList.contains("hidden")) {
+                    publicView.classList.add("hidden");
+                    adminPanel.classList.remove("hidden");
+                    adminBtnText.textContent = "Jadwal";
+                    adminBtnIcon.textContent = "grid_view";
+                    
+                    if (!STATE.isAdmin) {
+                        document.getElementById("admin-login-card").classList.remove("hidden");
+                        document.getElementById("admin-authenticated-zone").classList.add("hidden");
+                    } else {
+                        document.getElementById("admin-login-card").classList.add("hidden");
+                        document.getElementById("admin-authenticated-zone").classList.remove("hidden");
+                        Admin.renderAll();
+                    }
+                } else {
+                    publicView.classList.remove("hidden");
+                    adminPanel.classList.add("hidden");
+                    adminBtnText.textContent = "Admin";
+                    adminBtnIcon.textContent = "admin_panel_settings";
+                    Scheduler.refresh();
+                }
+            }
+        };
+
+        // Scheduling Engine & Fetch Layer
+        const Scheduler = {
+            init() {
+                const localHosts = localStorage.getItem("hls_local_hosts");
+                const localScheds = localStorage.getItem("hls_local_schedules");
+                if (localHosts) STATE.hosts = JSON.parse(localHosts);
+                if (localScheds) STATE.schedules = JSON.parse(localScheds);
+
+                setInterval(this.updateClock, 1000);
+                this.updateClock();
+                this.setActiveDate(STATE.activeDate);
+                this.fetchDataFromDatabase();
+            },
+
+            updateClock() {
+                const now = new Date();
+                const clockText = now.toTimeString().split(' ')[0];
+                const clockElem = document.getElementById("live-clock");
+                if (clockElem) clockElem.textContent = clockText;
+                Scheduler.updateHighlights();
+            },
+
+            setActiveDate(dateStr) {
+                STATE.activeDate = dateStr;
+                const datePicker = document.getElementById("nav-date-picker");
+                if(datePicker) datePicker.value = dateStr;
+                
+                try {
+                    const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+                    const event = new Date(dateStr);
+                    const formatted = new Intl.DateTimeFormat('id-ID', options).format(event);
+                    document.getElementById("current-display-date").textContent = formatted;
+                } catch(e) {
+                    document.getElementById("current-display-date").textContent = dateStr;
+                }
+                this.refresh();
+            },
+
+            changeActiveDay(offset) {
+                const current = new Date(STATE.activeDate);
+                current.setDate(current.getDate() + offset);
+                this.setActiveDate(`${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`);
+            },
+
+            setActiveToToday() { this.setActiveDate(getTodayDateString()); },
+            onDatePickerChange(val) { if (val) this.setActiveDate(val); },
+            onSearch(val) { STATE.searchQuery = val.trim().toLowerCase(); this.refresh(); },
+
+            async fetchDataFromDatabase() {
+                if (!STATE.webAppUrl) {
+                    this.updateConnectionBadge(false, "Offline (Tanpa URL)");
+                    this.refresh();
+                    return;
+                }
+                try {
+                    this.updateConnectionBadge(true, "Menyinkronkan...");
+                    const res = await fetch(STATE.webAppUrl);
+                    if (!res.ok) throw new Error("HTTP Error " + res.status);
+                    const textData = await res.text();
+                    
+                    // Deteksi jika merender halaman HTML login (salah izin)
+                    if (textData.toLowerCase().includes("<!doctype html>") || textData.toLowerCase().includes("<html")) {
+                        throw new Error("URL diblokir otorisasi. Deploy Apps Script harus diset 'Anyone'.");
+                    }
+                    
+                    const data = JSON.parse(textData);
+                    if (data && data.hosts && data.schedules) {
+                        STATE.hosts = data.hosts;
+                        STATE.schedules = data.schedules;
+                        localStorage.setItem("hls_local_hosts", JSON.stringify(STATE.hosts));
+                        localStorage.setItem("hls_local_schedules", JSON.stringify(STATE.schedules));
+                        this.updateConnectionBadge(true, "Online Terhubung");
+                    } else {
+                        throw new Error("Format JSON tidak valid");
+                    }
+                } catch (err) {
+                    console.warn("[Safe Fallback] Gagal memuat DB jarak jauh:", err.message);
+                    this.updateConnectionBadge(false, "Mode Lokal Offline");
+                }
+                this.refresh();
+                if(STATE.isAdmin) Admin.renderAll();
+            },
+
+            updateConnectionBadge(online, text) {
+                const badge = document.getElementById("connection-status");
+                if (!badge) return;
+                badge.className = online 
+                    ? "w-full md:w-auto mt-1 md:mt-0 bg-emerald-950/40 text-success px-3 py-1.5 md:px-4 md:py-2 rounded-xl border border-success/20 text-[10px] md:text-xs flex items-center gap-2 justify-center"
+                    : "w-full md:w-auto mt-1 md:mt-0 bg-amber-950/40 text-warning px-3 py-1.5 md:px-4 md:py-2 rounded-xl border border-warning/20 text-[10px] md:text-xs flex items-center gap-2 justify-center";
+                badge.innerHTML = `<span class="inline-block w-2 h-2 rounded-full ${online ? 'bg-success animate-pulse' : 'bg-warning'}"></span> <span class="font-medium truncate">${text}</span>`;
+            },
+
+            refresh() {
+                const listContainer = document.getElementById("schedule-cards-list");
+                const emptyState = document.getElementById("schedule-empty-state");
+                if (!listContainer) return;
+                
+                listContainer.innerHTML = "";
+                
+                const filteredSchedules = STATE.schedules.filter(item => 
+                    item.tanggal === STATE.activeDate && item.host.toLowerCase().includes(STATE.searchQuery)
+                ).sort((a, b) => a.jamMulai.localeCompare(b.jamMulai));
+
+                const counterText = document.getElementById("schedule-counter-text");
+                if(counterText) counterText.textContent = `${filteredSchedules.length} Sesi`;
+
+                if (filteredSchedules.length === 0) {
+                    if(emptyState) emptyState.classList.remove("hidden");
+                    listContainer.classList.add("hidden");
+                } else {
+                    if(emptyState) emptyState.classList.add("hidden");
+                    listContainer.classList.remove("hidden");
+
+                    filteredSchedules.forEach(item => {
+                        const statusInfo = this.checkLiveStatus(item.jamMulai, item.jamSelesai);
+                        let badgeHtml = "", liveCardStyle = "border-slate-800/80";
+
+                        if (statusInfo.status === "LIVE") {
+                            badgeHtml = `<span class="flex items-center gap-1 bg-danger/10 border border-danger/30 text-danger text-[9px] md:text-[10px] font-bold px-2 py-0.5 md:py-1 rounded-full uppercase animate-pulse"><span class="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-danger"></span> Live Now</span>`;
+                            liveCardStyle = "border-danger/40 shadow-lg bg-red-950/15";
+                        } else if (statusInfo.status === "UPCOMING") {
+                            badgeHtml = `<span class="flex items-center gap-1 bg-info/10 border border-info/30 text-info text-[9px] md:text-[10px] font-bold px-2 py-0.5 md:py-1 rounded-full uppercase"><span class="material-symbols-outlined text-[10px] md:text-[12px]">schedule</span> Nanti</span>`;
+                        } else {
+                            badgeHtml = `<span class="flex items-center gap-1 bg-slate-800 text-gray-500 text-[9px] md:text-[10px] font-bold px-2 py-0.5 md:py-1 rounded-full uppercase border border-slate-700/40">Selesai</span>`;
+                            liveCardStyle = "opacity-60 grayscale";
+                        }
+
+                        const card = document.createElement("div");
+                        card.className = `glass-panel p-3.5 md:p-5 rounded-2xl md:rounded-3xl transition-all relative flex flex-col justify-between ${liveCardStyle}`;
+                        card.innerHTML = `
+                            <div>
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="text-[9px] md:text-[11px] text-gray-400 font-mono font-semibold bg-slate-900 px-2 md:px-3 py-1 rounded-lg border border-slate-800/80">
+                                        ${item.jamMulai} - ${item.jamSelesai}
+                                    </span>
+                                    ${badgeHtml}
+                                </div>
+                                <div class="flex items-center gap-2.5 md:gap-3.5 my-1.5 md:my-2">
+                                    <div class="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 rounded-xl md:rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-base md:text-lg text-indigo-300 relative">
+                                        ${item.host.charAt(0).toUpperCase()}
+                                        ${statusInfo.status === "LIVE" ? '<span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-danger rounded-full animate-ping"></span>' : ''}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="font-bold text-white text-sm md:text-base truncate leading-tight">${item.host}</h4>
+                                        <p class="text-[9px] md:text-[11px] text-gray-400 truncate mt-0.5">${item.hari}, ${this.formatReadableDate(item.tanggal)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3 md:mt-4 pt-2.5 md:pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                                <div class="text-[9px] md:text-[11px] text-gray-400 whitespace-nowrap">
+                                    Durasi: <span class="font-bold text-gray-300 font-mono">${statusInfo.duration} Jam</span>
+                                </div>
+                                <a href="https://wa.me/${item.wa}" target="_blank" class="bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/25 px-2 md:px-3 py-1 md:py-1.5 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold flex items-center gap-1 transition-all whitespace-nowrap">
+                                    <span class="material-symbols-outlined text-[12px] md:text-[14px]">chat</span> Chat
+                                </a>
+                            </div>
+                        `;
+                        listContainer.appendChild(card);
+                    });
+                }
+                this.updateHighlights();
+            },
+
+            checkLiveStatus(startStr, endStr) {
+                try {
+                    const now = new Date();
+                    const curTotal = (now.getHours() * 60) + now.getMinutes();
+                    const [sh, sm] = startStr.split(':').map(Number);
+                    const [eh, em] = endStr.split(':').map(Number);
+                    const sTotal = (sh * 60) + sm;
+                    const eTotal = (eh * 60) + em;
+                    
+                    let diff = eTotal - sTotal;
+                    if (diff < 0) diff += 1440;
+                    
+                    let stat = "FINISHED";
+                    const today = getTodayDateString();
+                    
+                    if (STATE.activeDate < today) stat = "FINISHED";
+                    else if (STATE.activeDate > today) stat = "UPCOMING";
+                    else {
+                        if (curTotal < sTotal) stat = "UPCOMING";
+                        else if (curTotal >= sTotal && curTotal <= eTotal) stat = "LIVE";
+                    }
+                    return { status: stat, duration: (diff / 60).toFixed(1) };
+                } catch(e) {
+                    return { status: "FINISHED", duration: "0" };
+                }
+            },
+
+            formatReadableDate(ds) {
+                try { const p = ds.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; } 
+                catch(e) { return ds; }
+            },
+
+            updateHighlights() {
+                const todaySchedules = STATE.schedules.filter(item => item.tanggal === STATE.activeDate);
+                const elTot = document.getElementById("summary-total-sessions");
+                if(elTot) elTot.textContent = todaySchedules.length;
+
+                let liveName = "Tidak Ada", upName = "Belum Ada", minDiff = Infinity;
+                const curTotal = (new Date().getHours() * 60) + new Date().getMinutes();
+
+                todaySchedules.forEach(item => {
+                    const s = this.checkLiveStatus(item.jamMulai, item.jamSelesai);
+                    if (s.status === "LIVE") liveName = item.host;
+                    else if (s.status === "UPCOMING") {
+                        const [h, m] = (item.jamMulai || "0:0").split(':').map(Number);
+                        const d = (h * 60) + m - curTotal;
+                        if (d > 0 && d < minDiff) { minDiff = d; upName = `${item.host} (${item.jamMulai})`; }
+                    }
+                });
+
+                const elLive = document.getElementById("summary-live-host");
+                const elUp = document.getElementById("summary-upcoming-session");
+                if(elLive) elLive.textContent = liveName;
+                if(elUp) elUp.textContent = upName;
+            }
+        };
+
+        // Admin Management logic
+        const Admin = {
+            attemptLogin() {
+                const pass = document.getElementById("admin-password-input").value;
+                if (pass === "997758") { // Sesuai permintaan
+                    STATE.isAdmin = true;
+                    document.getElementById("admin-login-card").classList.add("hidden");
+                    document.getElementById("admin-authenticated-zone").classList.remove("hidden");
+                    UI.showToast("Login Berhasil!", "success");
+                    this.renderAll();
+                    document.getElementById("admin-password-input").value = "";
+                } else {
+                    UI.showToast("PIN Salah!", "error");
+                }
+            },
+
+            switchTab(tabId) {
+                STATE.currentAdminTab = tabId;
+                ['schedules', 'hosts'].forEach(t => {
+                    const btn = document.getElementById(`tab-btn-${t}`);
+                    const content = document.getElementById(`admin-tab-${t}`);
+                    if (!btn || !content) return;
+                    
+                    if (t === tabId) {
+                        btn.className = "flex-1 min-w-[130px] snap-center flex items-center justify-center gap-1.5 md:gap-2 py-2 px-3 md:py-2.5 md:px-4 rounded-lg md:rounded-xl text-[11px] md:text-sm font-semibold transition-all bg-primary text-white";
+                        content.classList.remove("hidden");
+                    } else {
+                        btn.className = "flex-1 min-w-[130px] snap-center flex items-center justify-center gap-1.5 md:gap-2 py-2 px-3 md:py-2.5 md:px-4 rounded-lg md:rounded-xl text-[11px] md:text-sm font-semibold transition-all text-gray-400 hover:text-white hover:bg-slate-800/50";
+                        content.classList.add("hidden");
+                    }
+                });
+                this.renderAll();
+            },
+
+            renderAll() {
+                this.renderHostDropdown();
+                this.renderHostTable();
+                this.renderScheduleTable();
+            },
+
+            renderHostDropdown() {
+                const sel = document.getElementById("sched-host-select");
+                if (!sel) return;
+                sel.innerHTML = `<option value="">-- Pilih Host --</option>`;
+                [...STATE.hosts].sort((a,b) => a.name.localeCompare(b.name)).forEach(h => {
+                    const opt = document.createElement("option");
+                    opt.value = h.id; opt.textContent = h.name; sel.appendChild(opt);
+                });
+            },
+
+            renderHostTable() {
+                const tbody = document.getElementById("admin-host-table-rows");
+                if (!tbody) return;
+                tbody.innerHTML = STATE.hosts.length === 0 
+                    ? `<tr><td colspan="3" class="text-center py-4 text-gray-500 text-[10px] md:text-xs">Kosong</td></tr>`
+                    : "";
+
+                STATE.hosts.forEach(h => {
+                    const tr = document.createElement("tr");
+                    tr.className = "hover:bg-slate-900/50";
+                    tr.innerHTML = `
+                        <td class="py-2.5 px-1 font-semibold text-white whitespace-nowrap">${h.name}</td>
+                        <td class="py-2.5 px-1 text-gray-400 text-[10px] md:text-xs">${h.wa}</td>
+                        <td class="py-2.5 px-1 text-center w-20">
+                            <div class="flex items-center justify-center gap-1.5">
+                                <button onclick="window.editHostClick('${h.id}')" class="text-xs bg-amber-500/10 text-amber-300 p-1 md:p-1.5 rounded-md md:rounded-lg border border-amber-500/20">
+                                    <span class="material-symbols-outlined text-[14px] md:text-[16px]">edit</span>
+                                </button>
+                                <button onclick="window.deleteHostClick('${h.id}')" class="text-xs bg-rose-500/10 text-rose-300 p-1 md:p-1.5 rounded-md md:rounded-lg border border-rose-500/20">
+                                    <span class="material-symbols-outlined text-[14px] md:text-[16px]">delete</span>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+
+            renderScheduleTable() {
+                const tbody = document.getElementById("admin-schedule-table-rows");
+                if (!tbody) return;
+                const matched = STATE.schedules.filter(s => s.tanggal === STATE.activeDate).sort((a,b) => a.jamMulai.localeCompare(b.jamMulai));
+                
+                tbody.innerHTML = matched.length === 0 
+                    ? `<tr><td colspan="4" class="text-center py-4 text-gray-500 text-[10px] md:text-xs">Kosong untuk tanggal ini</td></tr>`
+                    : "";
+
+                matched.forEach(s => {
+                    const tr = document.createElement("tr");
+                    tr.className = "hover:bg-slate-900/50";
+                    tr.innerHTML = `
+                        <td class="py-2.5 px-1">
+                            <div class="font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis max-w-[90px] md:max-w-none" title="${s.host}">${s.host}</div>
+                        </td>
+                        <td class="py-2.5 px-1 whitespace-nowrap">
+                            <div class="text-[9px] md:text-[10px] text-gray-400">${Scheduler.formatReadableDate(s.tanggal)}</div>
+                        </td>
+                        <td class="py-2.5 px-1 font-mono font-bold text-indigo-400 text-[10px] md:text-xs whitespace-nowrap">${s.jamMulai}-${s.jamSelesai}</td>
+                        <td class="py-2.5 px-1 text-center w-20">
+                            <div class="flex items-center justify-center gap-1.5">
+                                <button onclick="window.editScheduleClick('${s.id}')" class="text-xs bg-amber-500/10 text-amber-300 p-1 md:p-1.5 rounded-md md:rounded-lg border border-amber-500/20">
+                                    <span class="material-symbols-outlined text-[14px] md:text-[16px]">edit</span>
+                                </button>
+                                <button onclick="window.deleteScheduleClick('${s.id}')" class="text-xs bg-rose-500/10 text-rose-300 p-1 md:p-1.5 rounded-md md:rounded-lg border border-rose-500/20">
+                                    <span class="material-symbols-outlined text-[14px] md:text-[16px]">delete</span>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+
+            async commitToBackend(payload) {
+                if(!STATE.webAppUrl) return false;
+                try {
+                    const res = await fetch(STATE.webAppUrl, {
+                        method: 'POST', mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify(payload)
+                    });
+                    return true;
+                } catch(e) {
+                    console.warn("[Offline Fallback] Gagal POST:", e);
+                    return false;
+                }
+            },
+
+            async handleHostSubmit(e) {
+                e.preventDefault();
+                const id = document.getElementById("edit-host-id").value;
+                const name = document.getElementById("host-name").value.trim();
+                let wa = document.getElementById("host-whatsapp").value.trim().replace(/\D/g, '');
+                if (wa.startsWith('0')) wa = '62' + wa.substring(1);
+
+                const dataPayload = { id, name, wa };
+                if (id) {
+                    const idx = STATE.hosts.findIndex(h => h.id === id);
+                    if (idx !== -1) STATE.hosts[idx] = dataPayload;
+                } else {
+                    dataPayload.id = "H_" + Date.now();
+                    STATE.hosts.push(dataPayload);
+                }
+                
+                localStorage.setItem("hls_local_hosts", JSON.stringify(STATE.hosts));
+                this.commitToBackend({ action: id ? "updateHost" : "saveHost", data: dataPayload });
+                UI.showToast("Host berhasil disimpan", "success");
+                
+                this.resetHostForm();
+                this.renderAll();
+            },
+
+            async handleScheduleSubmit(e) {
+                e.preventDefault();
+                const id = document.getElementById("edit-schedule-id").value;
+                const hostId = document.getElementById("sched-host-select").value;
+                const hostObj = STATE.hosts.find(h => h.id === hostId);
+                
+                if (!hostObj) return UI.showToast("Pilih host!", "warning");
+
+                const dataPayload = {
+                    id: id || ("J_" + Date.now()),
+                    tanggal: document.getElementById("sched-date").value,
+                    hari: document.getElementById("sched-day").value.trim(),
+                    jamMulai: document.getElementById("sched-start").value,
+                    jamSelesai: document.getElementById("sched-end").value,
+                    host: hostObj.name,
+                    wa: hostObj.wa
+                };
+
+                if (id) {
+                    const idx = STATE.schedules.findIndex(s => s.id === id);
+                    if (idx !== -1) STATE.schedules[idx] = dataPayload;
+                } else {
+                    STATE.schedules.push(dataPayload);
+                }
+                
+                localStorage.setItem("hls_local_schedules", JSON.stringify(STATE.schedules));
+                this.commitToBackend({ action: id ? "updateSchedule" : "saveSchedule", data: dataPayload });
+                UI.showToast("Jadwal disimpan", "success");
+                
+                this.resetScheduleForm();
+                this.renderAll();
+                Scheduler.refresh();
+            },
+
+            async triggerBulkCopy(type) {
+                if (type === 'yesterday') {
+                    const yStr = getYesterdayDateString();
+                    const yScheds = STATE.schedules.filter(s => s.tanggal === yStr);
+                    if (yScheds.length === 0) return UI.showToast("Kosong di H-1", "warning");
+                    if (!confirm(`Salin ${yScheds.length} jadwal H-1 ke hari ini?`)) return;
+
+                    yScheds.forEach(s => {
+                        STATE.schedules.push({ ...s, id: "J_" + Date.now() + Math.random(), tanggal: STATE.activeDate, hari: this.getDayName(STATE.activeDate) });
+                    });
+                    
+                    localStorage.setItem("hls_local_schedules", JSON.stringify(STATE.schedules));
+                    this.commitToBackend({ action: "bulkCopy", data: { type: "yesterday", sourceDate: yStr, targetDate: STATE.activeDate } });
+                    UI.showToast("Sukses Salin", "success");
+                    this.renderAll();
+                    Scheduler.refresh();
+
+                } else if (type === '7days') {
+                    const tScheds = STATE.schedules.filter(s => s.tanggal === STATE.activeDate);
+                    if (tScheds.length === 0) return UI.showToast("Jadwal hari ini kosong", "warning");
+                    if (!confirm(`Duplikasi pola ini ke 7 hari ke depan?`)) return;
+
+                    const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+                    for (let d = 1; d <= 7; d++) {
+                        const nx = new Date(STATE.activeDate);
+                        nx.setDate(nx.getDate() + d);
+                        const nxStr = `${nx.getFullYear()}-${String(nx.getMonth() + 1).padStart(2, '0')}-${String(nx.getDate()).padStart(2, '0')}`;
+                        
+                        tScheds.forEach(s => {
+                            STATE.schedules.push({ ...s, id: "J_" + Date.now() + Math.random(), tanggal: nxStr, hari: days[nx.getDay()] });
+                        });
+                    }
+                    
+                    localStorage.setItem("hls_local_schedules", JSON.stringify(STATE.schedules));
+                    this.commitToBackend({ action: "bulkCopy", data: { type: "7days", targetDate: STATE.activeDate } });
+                    UI.showToast("Sukses Duplikasi", "success");
+                }
+            },
+
+            autoFillDay() {
+                const el = document.getElementById("sched-date");
+                const dayEl = document.getElementById("sched-day");
+                if (el && dayEl && el.value) dayEl.value = this.getDayName(el.value);
+            },
+            getDayName(ds) {
+                const d = new Date(ds);
+                return ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][d.getDay()] || "";
+            },
+
+            resetHostForm() {
+                document.getElementById("host-form").reset();
+                document.getElementById("edit-host-id").value = "";
+                document.getElementById("form-host-title").innerHTML = `<span class="material-symbols-outlined text-success text-base md:text-lg">person_add</span> Daftarkan Host`;
+                document.getElementById("btn-submit-host").innerHTML = `<span class="material-symbols-outlined text-sm md:text-base">person</span> Simpan Host`;
+                document.getElementById("btn-cancel-edit-host").classList.add("hidden");
+            },
+            resetScheduleForm() {
+                document.getElementById("schedule-form").reset();
+                document.getElementById("edit-schedule-id").value = "";
+                document.getElementById("sched-date").value = STATE.activeDate;
+                this.autoFillDay();
+                document.getElementById("form-schedule-title").innerHTML = `<span class="material-symbols-outlined text-primary text-base md:text-lg">add_circle</span> Buat Jadwal`;
+                document.getElementById("btn-submit-schedule").innerHTML = `<span class="material-symbols-outlined text-sm md:text-base">save</span> Simpan Jadwal`;
+                document.getElementById("btn-cancel-edit-schedule").classList.add("hidden");
+            }
+        };
+
+        // Window Exposed click handler (Null-safe)
+        window.editHostClick = (id) => {
+            const h = STATE.hosts.find(x => x.id === id);
+            if (!h) return;
+            document.getElementById("edit-host-id").value = h.id;
+            document.getElementById("host-name").value = h.name;
+            document.getElementById("host-whatsapp").value = h.wa;
+            document.getElementById("form-host-title").innerHTML = `<span class="material-symbols-outlined text-amber-400 text-base md:text-lg">edit</span> Edit Host`;
+            document.getElementById("btn-submit-host").innerHTML = `<span class="material-symbols-outlined text-sm md:text-base">save</span> Update Host`;
+            document.getElementById("btn-cancel-edit-host").classList.remove("hidden");
+            window.scrollTo({ top: document.getElementById('admin-tab-hosts').offsetTop - 50, behavior: 'smooth' });
+        };
+
+        window.deleteHostClick = (id) => {
+            if(!confirm("Hapus host ini?")) return;
+            STATE.hosts = STATE.hosts.filter(h => h.id !== id);
+            localStorage.setItem("hls_local_hosts", JSON.stringify(STATE.hosts));
+            Admin.commitToBackend({ action: "deleteHost", id });
+            UI.showToast("Host dihapus", "success");
+            Admin.renderAll();
+        };
+
+        window.editScheduleClick = (id) => {
+            const s = STATE.schedules.find(x => x.id === id);
+            if (!s) return;
+            document.getElementById("edit-schedule-id").value = s.id;
+            document.getElementById("sched-date").value = s.tanggal;
+            document.getElementById("sched-day").value = s.hari;
+            document.getElementById("sched-start").value = s.jamMulai;
+            document.getElementById("sched-end").value = s.jamSelesai;
+            const hostObj = STATE.hosts.find(h => h.name === s.host);
+            if (hostObj) document.getElementById("sched-host-select").value = hostObj.id;
+            
+            document.getElementById("form-schedule-title").innerHTML = `<span class="material-symbols-outlined text-amber-400 text-base md:text-lg">edit_calendar</span> Edit Jadwal`;
+            document.getElementById("btn-submit-schedule").innerHTML = `<span class="material-symbols-outlined text-sm md:text-base">save</span> Update Jadwal`;
+            document.getElementById("btn-cancel-edit-schedule").classList.remove("hidden");
+            window.scrollTo({ top: document.getElementById('admin-tab-schedules').offsetTop - 50, behavior: 'smooth' });
+        };
+
+        window.deleteScheduleClick = (id) => {
+            if(!confirm("Hapus jadwal ini?")) return;
+            STATE.schedules = STATE.schedules.filter(s => s.id !== id);
+            localStorage.setItem("hls_local_schedules", JSON.stringify(STATE.schedules));
+            Admin.commitToBackend({ action: "deleteSchedule", id });
+            UI.showToast("Jadwal dihapus", "success");
+            Admin.renderAll();
+            Scheduler.refresh();
+        };
+
+        // Bootstrapping
+        window.onload = function() {
+            Scheduler.init();
+            document.getElementById("sched-date")?.addEventListener("change", () => Admin.autoFillDay());
+            Admin.autoFillDay();
+        }
+    </script>
+</body>
+</html>
