@@ -241,7 +241,7 @@ input[type=date]::-webkit-calendar-picker-indicator,input[type=time]::-webkit-ca
 </div>
 
 <script>
-const CONFIG={webAppUrl:"https://script.google.com/macros/s/AKfycbwTcG-B8IxqSO45nWa8VuBZbhA_gjX36nCndYTKU9ITQh6fe0v_slTzOhCdgWUcvLM/exec",spreadsheetId:"1KN7Cl0st6nEw0b-ovcbL9353de1zlP85fnPm7Qd798Q",adminPin:"138080"};
+const CONFIG={webAppUrl:"https://script.google.com/macros/s/AKfycbz_l0UpRtjiEIPbcfZAzsjuZLmo-QXu358PVt4YXCUCuOheccvvF9PnUkuHQRe05w2-/exec",spreadsheetId:"1KN7Cl0st6nEw0b-ovcbL9353de1zlP85fnPm7Qd798Q",adminPin:"138080"};
 const STATE={hosts:[],platforms:[],schedules:[],swapRequests:[],activeDate:today(),searchQuery:"",isAdmin:false,currentAdminTab:"schedules",syncing:false};
 
 function $(id){return document.getElementById(id)}
@@ -688,7 +688,7 @@ function setupSheets() {
   const defs = {
     Hosts: ["Nama Host", "WhatsApp"],
     Platforms: ["Platform", "Nama Akun"],
-    Schedules: ["Tanggal", "Hari", "Jam Mulai", "Jam Selesai", "Akun Platform", "Host", "WhatsApp"],
+    Schedules: ["Tanggal", "Hari", "Jam Mulai", "Jam Selesai", "Akun Platform", "Host", "WhatsApp", "Schedule ID"],
     SwapRequests: ["Waktu Permintaan", "Peminta", "Host Tujuan", "WhatsApp Tujuan", "Tanggal Sesi", "Hari", "Jam Mulai", "Jam Selesai", "Akun Platform", "Sesi Tujuan", "Status", "Waktu Persetujuan", "Waktu Penolakan"]
   };
   Object.keys(defs).forEach(function(name) {
@@ -696,10 +696,31 @@ function setupSheets() {
     if (!sh) sh = ss.insertSheet(name);
     if (sh.getLastRow() === 0) {
       sh.getRange(1, 1, 1, defs[name].length).setValues([defs[name]]);
+    } else if (name === "Schedules" && sh.getRange(1, 8).getValue() === "") {
+      sh.getRange(1, 8).setValue("Schedule ID");
     }
     sh.setFrozenRows(1);
   });
+  ensureScheduleIds_(ss);
   return ss;
+}
+
+function ensureScheduleIds_(ss) {
+  const sh = ss.getSheetByName(SHEETS.SCHEDULES);
+  if (!sh || sh.getLastRow() < 2) return;
+  const last = sh.getLastRow();
+  const range = sh.getRange(2, 8, last - 1, 1);
+  const ids = range.getValues();
+  let changed = false;
+  for (let i = 0; i < ids.length; i++) {
+    const row = i + 2;
+    const hasData = sh.getRange(row, 1, 1, 7).getValues()[0].some(function(v) { return String(v).trim() !== ""; });
+    if (hasData && !String(ids[i][0]).trim()) {
+      ids[i][0] = Utilities.getUuid();
+      changed = true;
+    }
+  }
+  if (changed) range.setValues(ids);
 }
 
 function doGet() {
@@ -729,7 +750,7 @@ function doPost(e) {
 
       case "saveSchedule": return writeSchedule_(ss, p.data, false);
       case "updateSchedule": return writeSchedule_(ss, p.data, true);
-      case "deleteSchedule": return deleteByRow_(ss.getSheetByName(SHEETS.SCHEDULES), p.id, "S_");
+      case "deleteSchedule": return deleteSchedule_(ss, p.id);
       case "bulkSaveSchedules": return bulkSaveSchedules_(ss, p.data || []);
 
       case "saveSwapRequest": return writeSwap_(ss, p.data);
@@ -758,7 +779,7 @@ function readPlatforms_(ss) {
 function readSchedules_(ss) {
   return rows_(ss.getSheetByName(SHEETS.SCHEDULES)).map(function(r) {
     return {
-      id: "S_" + r.row, _row: r.row,
+      id: text_(r.values[7]) || ("S_" + r.row), _row: r.row,
       tanggal: dateText_(r.values[0]), hari: text_(r.values[1]),
       jamMulai: timeText_(r.values[2]), jamSelesai: timeText_(r.values[3]),
       platformName: text_(r.values[4]), host: text_(r.values[5]), wa: text_(r.values[6])
@@ -806,25 +827,45 @@ function writePlatform_(ss, d, update) {
   return json_({ok: true, message: "Akun platform tersimpan"});
 }
 
+function scheduleRowFromId_(ss, id) {
+  const sh = ss.getSheetByName(SHEETS.SCHEDULES);
+  if (!sh || !id) return 0;
+  const directRow = parseRow_(id, "S_");
+  if (directRow && directRow <= sh.getLastRow()) {
+    const directId = text_(sh.getRange(directRow, 8).getValue());
+    if (directId === String(id)) return directRow;
+  }
+  if (sh.getLastRow() < 2) return 0;
+  const ids = sh.getRange(2, 8, sh.getLastRow() - 1, 1).getValues();
+  const target = String(id);
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === target) return i + 2;
+  }
+  return 0;
+}
+
+function scheduleValues_(d, id) {
+  return [d.tanggal || "", d.hari || "", d.jamMulai || "", d.jamSelesai || "", d.platformName || "", d.host || "", d.wa || "", id || Utilities.getUuid()];
+}
+
 function writeSchedule_(ss, d, update) {
   const sh = ss.getSheetByName(SHEETS.SCHEDULES);
-  const row = update ? rowFromId_(d, "S_") : 0;
-  const values = [[d.tanggal, d.hari, d.jamMulai, d.jamSelesai, d.platformName, d.host, d.wa]];
-  if (row) sh.getRange(row, 1, 1, 7).setValues(values);
-  else sh.appendRow(values);
+  const existingRow = update ? scheduleRowFromId_(ss, d && d.id) : 0;
+  const id = update && existingRow ? String(sh.getRange(existingRow, 8).getValue() || d.id || Utilities.getUuid()) : Utilities.getUuid();
+  const values = [scheduleValues_(d || {}, id)];
+  if (existingRow) sh.getRange(existingRow, 1, 1, 8).setValues(values);
+  else sh.getRange(sh.getLastRow() + 1, 1, 1, 8).setValues(values);
   SpreadsheetApp.flush();
-  return json_({ok: true, message: "Jadwal tersimpan"});
+  return json_({ok: true, id: id, message: "Jadwal tersimpan"});
 }
 
 function bulkSaveSchedules_(ss, list) {
   if (!list || !list.length) return json_({ok: true, message: "Tidak ada jadwal baru."});
   const sh = ss.getSheetByName(SHEETS.SCHEDULES);
-  const values = list.map(function(d) {
-    return [d.tanggal, d.hari, d.jamMulai, d.jamSelesai, d.platformName, d.host, d.wa];
-  });
-  sh.getRange(sh.getLastRow() + 1, 1, values.length, 7).setValues(values);
+  const values = list.map(function(d) { return scheduleValues_(d || {}, Utilities.getUuid()); });
+  sh.getRange(sh.getLastRow() + 1, 1, values.length, 8).setValues(values);
   SpreadsheetApp.flush();
-  return json_({ok: true, message: values.length + " jadwal tersimpan"});
+  return json_({ok: true, count: values.length, message: values.length + " jadwal tersimpan"});
 }
 
 function writeSwap_(ss, d) {
@@ -864,7 +905,7 @@ function rejectSwap_(ss, data) {
 function updateScheduleRowFromObject_(ss, d) {
   if (!d) return;
   const sh = ss.getSheetByName(SHEETS.SCHEDULES);
-  let row = rowFromId_(d, "S_");
+  let row = scheduleRowFromId_(ss, d.id);
   if (!row) {
     const rList = rows_(sh);
     for (let i = 0; i < rList.length; i++) {
@@ -874,7 +915,18 @@ function updateScheduleRowFromObject_(ss, d) {
       }
     }
   }
-  if (row) sh.getRange(row, 1, 1, 7).setValues([[d.tanggal, d.hari, d.jamMulai, d.jamSelesai, d.platformName, d.host, d.wa]]);
+  if (row) {
+    const id = String(sh.getRange(row, 8).getValue() || d.id || Utilities.getUuid());
+    sh.getRange(row, 1, 1, 8).setValues([scheduleValues_(d, id)]);
+  }
+}
+
+function deleteSchedule_(ss, id) {
+  const sh = ss.getSheetByName(SHEETS.SCHEDULES);
+  const row = scheduleRowFromId_(ss, id);
+  if (row && row >= 2 && row <= sh.getLastRow()) sh.deleteRow(row);
+  SpreadsheetApp.flush();
+  return json_({ok: true, message: "Jadwal dihapus"});
 }
 
 function deleteByRow_(sh, id, prefix) {
