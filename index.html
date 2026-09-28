@@ -241,11 +241,46 @@ input[type=date]::-webkit-calendar-picker-indicator,input[type=time]::-webkit-ca
 </div>
 
 <script>
-const CONFIG={webAppUrl:"https://script.google.com/macros/s/AKfycbz_l0UpRtjiEIPbcfZAzsjuZLmo-QXu358PVt4YXCUCuOheccvvF9PnUkuHQRe05w2-/exec",spreadsheetId:"1KN7Cl0st6nEw0b-ovcbL9353de1zlP85fnPm7Qd798Q",adminPin:"138080"};
+const CONFIG={webAppUrl:"https://script.google.com/macros/s/AKfycbwTcG-B8IxqSO45nWa8VuBZbhA_gjX36nCndYTKU9ITQh6fe0v_slTzOhCdgWUcvLM/exec",spreadsheetId:"1KN7Cl0st6nEw0b-ovcbL9353de1zlP85fnPm7Qd798Q",adminPin:"138080"};
 const STATE={hosts:[],platforms:[],schedules:[],swapRequests:[],activeDate:today(),searchQuery:"",isAdmin:false,currentAdminTab:"schedules",syncing:false};
 
 function $(id){return document.getElementById(id)}
 function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function normalizeClientDate(v){
+  // Normalisasi tanggal dari Google Sheets ke format YYYY-MM-DD (Tahun-Bulan-Hari)
+  if(v===null||v===undefined||v==='') return '';
+  if(v instanceof Date && !isNaN(v.getTime())){
+    return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+  }
+  const s=String(v).trim();
+  if(s.includes('T')){
+    const isoDate=new Date(s);
+    if(!isNaN(isoDate.getTime())){
+      return `${isoDate.getFullYear()}-${String(isoDate.getMonth()+1).padStart(2,'0')}-${String(isoDate.getDate()).padStart(2,'0')}`;
+    }
+  }
+  let m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  m=s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if(m)return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+  if(/^\d+(?:\.\d+)?$/.test(s)){
+    const n=Number(s);
+    if(n>20000 && n<100000){
+      const d=new Date(Date.UTC(1899,11,30)+Math.round(n)*86400000);
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+    }
+  }
+  return s;
+}
+function normalizeClientTime(v){
+  if(v===null||v===undefined||v==='') return '';
+  if(v instanceof Date && !isNaN(v.getTime())){
+    return `${String(v.getHours()).padStart(2,'0')}:${String(v.getMinutes()).padStart(2,'0')}`;
+  }
+  const s=String(v).trim();
+  const m=s.match(/(\d{1,2})[.:](\d{2})/);
+  return m?`${String(m[1]).padStart(2,'0')}:${m[2]}`:s;
+}
 function dayName(ds){const d=new Date(ds+"T00:00:00");return ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"][d.getDay()]}
 function readableDate(ds){try{return new Intl.DateTimeFormat("id-ID",{weekday:"long",day:"2-digit",month:"long",year:"numeric"}).format(new Date(ds+"T00:00:00"))}catch(e){return ds}}
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
@@ -322,13 +357,34 @@ const Scheduler={
      if(!d||!Array.isArray(d.hosts)||!Array.isArray(d.schedules))throw Error("Format database tidak sesuai");
      STATE.hosts=d.hosts||[];
      STATE.platforms=d.platforms||[];
-     STATE.schedules=d.schedules||[];
+     STATE.schedules=(d.schedules||[]).map(s=>({
+       ...s,
+       tanggal: normalizeClientDate(s.tanggal ?? s.tanggalSesi ?? s.date),
+       jamMulai: normalizeClientTime(s.jamMulai ?? s.jam_start ?? s.startTime),
+       jamSelesai: normalizeClientTime(s.jamSelesai ?? s.jam_end ?? s.endTime),
+       platformName: s.platformName ?? s.platform ?? s.akunPlatform ?? s.akun ?? '',
+       host: s.host ?? s.hostName ?? s.namaHost ?? '',
+       id: s.id ?? s.scheduleId ?? generateId()
+     }));
      STATE.swapRequests=d.swapRequests||[];
 
      STATE.schedules.forEach(s=>{
        if(!s.hostId){const h=STATE.hosts.find(x=>x.name===s.host);if(h)s.hostId=h.id}
        if(!s.platformId){const p=STATE.platforms.find(x=>x.name===s.platformName);if(p)s.platformId=p.id}
      });
+
+     // Otomatis pilih tanggal jadwal terdekat jika hari ini tidak ada jadwal di sheet Schedules
+     const uniqueDates=[...new Set(STATE.schedules.map(s=>normalizeClientDate(s.tanggal)).filter(Boolean))];
+     const todayStr=today();
+     if(uniqueDates.length>0){
+       if(uniqueDates.includes(todayStr)){
+         this.setActiveDate(todayStr);
+       }else{
+         // Urutkan berdasarkan jarak terdekat dengan hari ini
+         uniqueDates.sort((a,b)=>Math.abs(new Date(a+'T00:00:00')-new Date(todayStr+'T00:00:00')) - Math.abs(new Date(b+'T00:00:00')-new Date(todayStr+'T00:00:00')));
+         this.setActiveDate(uniqueDates[0]);
+       }
+     }
 
      localSave();
      this.setConnection(true,"Online Terhubung");
@@ -349,7 +405,7 @@ const Scheduler={
  },
  refresh(){
    const wrap=$("schedule-platform-list"),empty=$("schedule-empty-state");if(!wrap)return;wrap.innerHTML="";
-   let list=STATE.schedules.filter(s=>s.tanggal===STATE.activeDate).filter(s=>{const q=STATE.searchQuery;return !q||String(s.host).toLowerCase().includes(q)||String(s.platformName||s.platform||"").toLowerCase().includes(q)});
+   let list=STATE.schedules.filter(s=>normalizeClientDate(s.tanggal)===normalizeClientDate(STATE.activeDate)).filter(s=>{const q=STATE.searchQuery;return !q||String(s.host).toLowerCase().includes(q)||String(s.platformName||s.platform||"").toLowerCase().includes(q)});
    list.sort((a,b)=>String(a.jamMulai).localeCompare(String(b.jamMulai)));
    $("schedule-counter-text").textContent=`${list.length} Sesi`;
    this.renderPublicSwapHistory();
@@ -371,13 +427,21 @@ const Scheduler={
  },
  card(s){
    const st=this.status(s.jamMulai,s.jamSelesai,s.tanggal);const card=document.createElement("div");
-   card.className=`rounded-xl border p-3 ${st.status==="LIVE"?"border-rose-500/40 bg-rose-950/10":st.status==="UPCOMING"?"border-slate-700 bg-slate-900/60":"border-slate-800 bg-slate-950/40 opacity-70"}`;
-   card.innerHTML=`<div class="flex items-center justify-between gap-2"><span class="font-mono font-bold text-indigo-300 text-xs">${esc(s.jamMulai)} – ${esc(s.jamSelesai)}</span><span class="text-[9px] font-bold px-2 py-1 rounded-full ${st.status==="LIVE"?"bg-rose-500/10 text-rose-300 animate-pulse":st.status==="UPCOMING"?"bg-sky-500/10 text-sky-300":"bg-slate-800 text-gray-500"}">${st.label}</span></div>
-   <div class="flex items-center gap-3 mt-3"><div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-indigo-300 flex-shrink-0">${esc(String(s.host||"?").charAt(0).toUpperCase())}</div><div class="min-w-0"><div class="font-bold text-sm text-white truncate">${esc(s.host)}</div><div class="text-[10px] text-gray-500">${esc(s.hari||dayName(s.tanggal))}, ${esc(readableDate(s.tanggal))}</div></div></div>
-   <div class="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between gap-2"><span class="text-[10px] text-gray-500">${st.duration} jam</span><button onclick="Swap.openModal('${esc(s.id)}')" class="touch-btn bg-amber-500/10 text-amber-300 border border-amber-500/20 px-3 rounded-lg text-[10px] font-bold flex items-center gap-1 hover:bg-amber-500/20"><span class="material-symbols-outlined text-sm">swap_horiz</span>Swap</button></div>`;
+   card.className=`rounded-xl border p-2.5 sm:p-3 flex items-center justify-between gap-3 ${st.status==="LIVE"?"border-rose-500/40 bg-rose-950/20":st.status==="UPCOMING"?"border-slate-800 bg-slate-900/60":"border-slate-800/60 bg-slate-950/30 opacity-70"}`;
+   card.innerHTML=`<div class="flex items-center gap-2.5 min-w-0">
+     <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-bold text-xs text-indigo-300 flex-shrink-0">${esc(String(s.host||"?").charAt(0).toUpperCase())}</div>
+     <div class="min-w-0">
+       <div class="font-bold text-xs sm:text-sm text-white truncate">${esc(s.host)}</div>
+       <div class="text-[11px] font-mono text-indigo-300 font-semibold flex items-center gap-1 mt-0.5"><span class="material-symbols-outlined text-[13px] text-indigo-400">schedule</span>${esc(s.jamMulai)} - ${esc(s.jamSelesai)}</div>
+     </div>
+   </div>
+   <div class="flex items-center gap-1.5 flex-shrink-0">
+     <span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${st.status==="LIVE"?"bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse":st.status==="UPCOMING"?"bg-sky-500/10 text-sky-300 border border-sky-500/20":"bg-slate-800 text-gray-500"}">${st.label}</span>
+     <button onclick="Swap.openModal('${esc(s.id)}')" class="touch-btn bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-1 rounded-lg text-[10px] font-bold hover:bg-amber-500/20 flex items-center gap-1" title="Tukar Sesi"><span class="material-symbols-outlined text-sm">swap_horiz</span><span class="hidden sm:inline">Swap</span></button>
+   </div>`;
    return card;
  },
- status(a,b,date){try{const [sh,sm]=a.split(":").map(Number),[eh,em]=b.split(":").map(Number),s=sh*60+sm,e=eh*60+em,now=new Date(),cur=now.getHours()*60+now.getMinutes();let diff=e-s;if(diff<0)diff+=1440;if(date<today())return{status:"FINISHED",label:"Selesai",duration:(diff/60).toFixed(1)};if(date>today())return{status:"UPCOMING",label:"Akan datang",duration:(diff/60).toFixed(1)};if(cur<s)return{status:"UPCOMING",label:"Akan datang",duration:(diff/60).toFixed(1)};if(cur<=e||e<s)return{status:"LIVE",label:"LIVE",duration:(diff/60).toFixed(1)};return{status:"FINISHED",label:"Selesai",duration:(diff/60).toFixed(1)}}catch(e){return{status:"FINISHED",label:"Selesai",duration:"0.0"}}}
+ status(a,b,date){try{const [sh,sm]=a.split(":").map(Number),[eh,em]=b.split(":").map(Number),s=sh*60+sm,e=eh*60+em,now=new Date(),cur=now.getHours()*60+now.getMinutes();let diff=e-s;if(diff<0)diff+=1440;if(date<today())return{status:"FINISHED",label:"Selesai",duration:(diff/60).toFixed(1)};if(date>today())return{status:"UPCOMING",label:"Akan datang",duration:(diff/60).toFixed(1)};if(cur<s)return{status:"UPCOMING",label:"Akan datang",duration:(diff/60).toFixed(1)};if(cur<=e||e<s)return{status:"LIVE",label:"LIVE",duration:(diff/60).toFixed(1)};return{status:"FINISHED",label:"Selesai",duration:"0.0"}}catch(e){return{status:"FINISHED",label:"Selesai",duration:"0.0"}}}
 };
 
 const API={
@@ -446,7 +510,7 @@ const Admin={
  renderScheduleTable(){
    const w=$("admin-schedule-table");
    $("admin-schedule-date-label").textContent=readableDate(STATE.activeDate);
-   const rows=STATE.schedules.filter(s=>s.tanggal===STATE.activeDate).sort((a,b)=>`${a.jamMulai}`.localeCompare(`${b.jamMulai}`));
+   const rows=STATE.schedules.filter(s=>normalizeClientDate(s.tanggal)===normalizeClientDate(STATE.activeDate)).sort((a,b)=>`${a.jamMulai}`.localeCompare(`${b.jamMulai}`));
    w.innerHTML=rows.length?rows.map(s=>`<div class="bg-slate-900/70 border border-slate-800 rounded-xl p-3"><div class="flex justify-between gap-2"><div><div class="text-[9px] text-sky-300 font-bold">${esc(s.platformName||s.platform||"")}</div><div class="font-bold text-xs text-white">${esc(s.host)}</div><div class="text-[10px] text-gray-500">${esc(readableDate(s.tanggal))} • ${esc(s.jamMulai)}–${esc(s.jamSelesai)}</div></div><div class="flex gap-1"><button onclick="Admin.editSchedule('${esc(s.id)}')" class="touch-btn px-2 bg-amber-500/10 text-amber-300 rounded-lg hover:bg-amber-500/20"><span class="material-symbols-outlined text-sm">edit</span></button><button onclick="Admin.deleteSchedule('${esc(s.id)}')" class="touch-btn px-2 bg-rose-500/10 text-rose-300 rounded-lg hover:bg-rose-500/20"><span class="material-symbols-outlined text-sm">delete</span></button></div></div></div>`).join(""):'<div class="text-center text-gray-500 text-xs py-5">Tidak ada jadwal pada tanggal ini.</div>';
  },
  renderSwapHistory(){
@@ -622,7 +686,7 @@ const Swap={
    const s=this.current,sel=$("swap-target-session");
    sel.innerHTML='<option value="">-- Tukar dengan sesi ini saja --</option>';
    if(!hostId)return;
-   STATE.schedules.filter(x=>x.tanggal===s.tanggal&&x.hostId===hostId&&x.id!==s.id).sort((a,b)=>a.jamMulai.localeCompare(b.jamMulai)).forEach(x=>sel.innerHTML+=`<option value="${esc(x.id)}">${esc(x.platformName)} • ${esc(x.jamMulai)}–${esc(x.jamSelesai)}</option>`);
+   STATE.schedules.filter(x=>normalizeClientDate(x.tanggal)===normalizeClientDate(s.tanggal)&&x.hostId===hostId&&x.id!==s.id).sort((a,b)=>a.jamMulai.localeCompare(b.jamMulai)).forEach(x=>sel.innerHTML+=`<option value="${esc(x.id)}">${esc(x.platformName)} • ${esc(x.jamMulai)}–${esc(x.jamSelesai)}</option>`);
  },
  async sendRequest(){
    const s=this.current,targetId=$("swap-target-host").value,target=STATE.hosts.find(h=>h.id===targetId);
@@ -780,9 +844,13 @@ function readSchedules_(ss) {
   return rows_(ss.getSheetByName(SHEETS.SCHEDULES)).map(function(r) {
     return {
       id: text_(r.values[7]) || ("S_" + r.row), _row: r.row,
-      tanggal: dateText_(r.values[0]), hari: text_(r.values[1]),
-      jamMulai: timeText_(r.values[2]), jamSelesai: timeText_(r.values[3]),
-      platformName: text_(r.values[4]), host: text_(r.values[5]), wa: text_(r.values[6])
+      tanggal: dateText_(r.values[0]), 
+      hari: text_(r.values[1]),
+      jamMulai: timeText_(r.values[2]), 
+      jamSelesai: timeText_(r.values[3]),
+      platformName: text_(r.values[4]), 
+      host: text_(r.values[5]), 
+      wa: text_(r.values[6])
     };
   });
 }
@@ -803,7 +871,8 @@ function readSwaps_(ss) {
 
 function rows_(sh) {
   if (!sh || sh.getLastRow() < 2) return [];
-  const values = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues();
+  const maxCols = Math.max(sh.getLastColumn(), 8);
+  const values = sh.getRange(2, 1, sh.getLastRow() - 1, maxCols).getValues();
   return values
     .map(function(val, i) { return {row: i + 2, values: val}; })
     .filter(function(x) { return x.values.some(function(v) { return String(v).trim() !== ""; }); });
@@ -845,7 +914,7 @@ function scheduleRowFromId_(ss, id) {
 }
 
 function scheduleValues_(d, id) {
-  return [d.tanggal || "", d.hari || "", d.jamMulai || "", d.jamSelesai || "", d.platformName || "", d.host || "", d.wa || "", id || Utilities.getUuid()];
+  return [dateText_(d.tanggal), d.hari || "", d.jamMulai || "", d.jamSelesai || "", d.platformName || "", d.host || "", d.wa || "", id || Utilities.getUuid()];
 }
 
 function writeSchedule_(ss, d, update) {
@@ -957,8 +1026,34 @@ function parseRow_(id, prefix) {
 }
 
 function text_(v) { return v === null || v === undefined ? "" : String(v); }
-function dateText_(v) { if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd"); return text_(v); }
-function timeText_(v) { if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), "HH:mm"); return text_(v); }
+function dateText_(v) {
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  var s = text_(v).trim();
+  if (!s) return "";
+  var m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (m) return m[1] + "-" + String(m[2]).padStart(2,"0") + "-" + String(m[3]).padStart(2,"0");
+  m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if (m) return m[3] + "-" + String(m[2]).padStart(2,"0") + "-" + String(m[1]).padStart(2,"0");
+  if (/^\d+(?:\.\d+)?$/.test(s)) {
+    var serial = Number(s);
+    if (serial > 20000 && serial < 100000) {
+      var base = new Date(Date.UTC(1899, 11, 30));
+      var d = new Date(base.getTime() + Math.round(serial) * 86400000);
+      return Utilities.formatDate(d, "UTC", "yyyy-MM-dd");
+    }
+  }
+  return s;
+}
+function timeText_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), "HH:mm");
+  var s = text_(v).trim();
+  if (!s) return "";
+  var m = s.match(/(\d{1,2})[.:](\d{2})/);
+  if (m) return String(m[1]).padStart(2,"0") + ":" + m[2];
+  return s;
+}
 function json_(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
 `;
 
